@@ -26,7 +26,35 @@
 				extensions: [
 					basicSetup,
 					json(),
-					
+					EditorView.theme(
+						{
+							'&': {
+								backgroundColor: 'var(--bg-1)',
+								color: 'var(--text)'
+							},
+							'.cm-content': {
+								caretColor: 'var(--accent)'
+							},
+							'.cm-cursor, .cm-dropCursor': {
+								borderLeftColor: 'var(--accent)'
+							},
+							'.cm-gutters': {
+								backgroundColor: 'var(--bg-1)',
+								color: 'var(--muted)',
+								border: 'none'
+							},
+							'.cm-activeLineGutter': {
+								backgroundColor: 'var(--bg-2)'
+							},
+							'.cm-activeLine': {
+								backgroundColor: 'rgba(255,255,255,0.035)'
+							},
+							'.cm-selectionBackground, .cm-content ::selection': {
+								backgroundColor: 'rgba(183,193,207,0.24)'
+							}
+						},
+						{ dark: true }
+					),
 					EditorView.updateListener.of((update) => {
 						if (!update.docChanged || syncing) {
 							return;

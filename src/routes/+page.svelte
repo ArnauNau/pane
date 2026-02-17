@@ -321,7 +321,16 @@
 		min-height: 420px;
 		overflow: auto;
 		padding: 14px;
-		
+		background-color: #0b0d11;
+		background-image: repeating-conic-gradient(
+			#101318 0deg 90deg,
+			#0b0d11 90deg 180deg,
+			#101318 180deg 270deg,
+			#0b0d11 270deg 360deg
+		);
+		background-size: 20px 20px;
+	}
+
 	canvas {
 		display: block;
 		image-rendering: pixelated;
