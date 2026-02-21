@@ -7,7 +7,7 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
-	<title>Iso Pixel Art Playground</title>
+	<title>PANE</title>
 </svelte:head>
 
 {@render children()}
