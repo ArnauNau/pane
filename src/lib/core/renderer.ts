@@ -213,7 +213,124 @@ function renderPrimitive(
 	}
 }
 
+function renderIsoTile(
+	command: PrimitiveCommand & { type: 'iso_tile' },
+	raster: Raster,
+	spec: AssetSpec,
+	warnings: Issue[],
+	warningKeys: Set<string>,
+	paletteSet: Set<string>
+): void {
+	const axisAligned = !command.transform?.flipX && !command.transform?.flipY;
+	const translateX = command.transform?.translateX ?? 0;
+	const translateY = command.transform?.translateY ?? 0;
+	const anchorX = command.x + translateX;
+	const anchorY = command.y + translateY;
+	const points = isoTopFacePoints(command.x, command.y, command.w, command.h);
+	const transformed = transformPoints(points, command.transform, { x: command.x, y: command.y });
+	const fill = resolveColor(command.fill, spec, warnings, warningKeys, paletteSet, '/fill');
+	const dither = resolveDither(command.dither, spec, warnings, warningKeys, paletteSet, '/dither');
+	if (axisAligned) {
+		fillIsoDiamondRows(raster, anchorX, anchorY, command.w, command.h, fill);
+		if (dither) {
+			fillIsoDiamondRows(raster, anchorX, anchorY, command.w, command.h, dither.color, dither.pattern);
+		}
+	} else {
+		raster.fillPolygon(transformed, fill);
+		if (dither) {
+			raster.fillPolygon(transformed, dither.color, dither.pattern);
+		}
+	}
 
+	if (command.outline) {
+		const outline = resolveColor(command.outline, spec, warnings, warningKeys, paletteSet, '/outline');
+		if (axisAligned) {
+			drawIsoDiamondOutlineRows(raster, anchorX, anchorY, command.w, command.h, outline);
+		} else {
+			raster.strokePolygon(transformed, outline, 1);
+		}
+	}
+}
+
+function renderIsoPrism(
+	command: PrimitiveCommand & { type: 'iso_prism' },
+	raster: Raster,
+	spec: AssetSpec,
+	warnings: Issue[],
+	warningKeys: Set<string>,
+	paletteSet: Set<string>
+): void {
+	const axisAligned = !command.transform?.flipX && !command.transform?.flipY;
+	const top = isoTopFacePoints(command.x, command.y, command.w, command.h);
+	if (axisAligned && command.w % 2 === 0) {
+		top[1] = { ...top[1], x: top[1].x - 1 };
+	}
+	const [, r, b, l] = top;
+	const depth = command.depth;
+	const left = axisAligned
+		? [
+				l,
+				{ x: command.x - 1, y: b.y },
+				{ x: command.x - 1, y: b.y + depth - 1 },
+				{ x: l.x, y: l.y + depth - 1 }
+			]
+		: [l, b, { x: b.x, y: b.y + depth - 1 }, { x: l.x, y: l.y + depth - 1 }];
+	const right = axisAligned
+		? [
+				r,
+				{ x: command.x, y: b.y },
+				{ x: command.x, y: b.y + depth - 1 },
+				{ x: r.x, y: r.y + depth - 1 }
+			]
+		: [r, b, { x: b.x, y: b.y + depth - 1 }, { x: r.x, y: r.y + depth - 1 }];
+
+	const origin = { x: command.x, y: command.y };
+	const topPoints = transformPoints(top, command.transform, origin);
+	const leftPoints = transformPoints(left, command.transform, origin);
+	const rightPoints = transformPoints(right, command.transform, origin);
+
+	const topFill = resolveColor(command.topFill, spec, warnings, warningKeys, paletteSet, '/topFill');
+	const leftFill = resolveColor(command.leftFill, spec, warnings, warningKeys, paletteSet, '/leftFill');
+	const rightFill = resolveColor(command.rightFill, spec, warnings, warningKeys, paletteSet, '/rightFill');
+	const dither = resolveDither(command.dither, spec, warnings, warningKeys, paletteSet, '/dither');
+	const translateX = command.transform?.translateX ?? 0;
+	const translateY = command.transform?.translateY ?? 0;
+	const anchorX = command.x + translateX;
+	const anchorY = command.y + translateY;
+
+	if (axisAligned) {
+		fillIsoDiamondRows(raster, anchorX, anchorY, command.w, command.h, topFill);
+		if (dither) {
+			fillIsoDiamondRows(
+				raster,
+				anchorX,
+				anchorY,
+				command.w,
+				command.h,
+				dither.color,
+				dither.pattern
+			);
+		}
+		fillAxisAlignedLeftFace(raster, anchorX, anchorY, command.w, command.h, depth, leftFill);
+		fillAxisAlignedRightFace(raster, anchorX, anchorY, command.w, command.h, depth, rightFill);
+	} else {
+		raster.fillPolygon(topPoints, topFill);
+		if (dither) {
+			raster.fillPolygon(topPoints, dither.color, dither.pattern);
+		}
+		raster.fillPolygon(leftPoints, leftFill);
+		raster.fillPolygon(rightPoints, rightFill);
+	}
+
+	if (command.outline) {
+		const outline = resolveColor(command.outline, spec, warnings, warningKeys, paletteSet, '/outline');
+		if (axisAligned) {
+			drawAxisAlignedPrismOutline(raster, anchorX, anchorY, command.w, command.h, depth, outline);
+		} else {
+			drawPrismOutline(raster, topPoints, leftPoints, rightPoints, outline, null);
+		}
+	}
+}
 
 function renderRect(
 	command: PrimitiveCommand & { type: 'rect' },
@@ -436,7 +553,168 @@ function drawPrismOutline(
 	}
 }
 
+function drawAxisAlignedPrismOutline(
+	raster: Raster,
+	x: number,
+	y: number,
+	w: number,
+	h: number,
+	depth: number,
+	color: RgbaColor
+): void {
+	const halfW = w / 2;
+	const halfH = h / 2;
+	const step = Math.max(1, Math.round(w / h));
+	const leftX = x - halfW;
+	const rightX = x + halfW - 1;
+	const sideTopY = y + halfH;
+	const seamTopY = y + h;
+	const sideBottomY = sideTopY + depth - 1;
+	const seamBottomY = seamTopY + depth - 1;
 
+	drawIsoDiamondOutlineRows(raster, x, y, w, h, color);
+	raster.drawLine(leftX, sideTopY, leftX, sideBottomY, color, 1);
+	raster.drawLine(rightX, sideTopY, rightX, sideBottomY, color, 1);
+	raster.drawLine(x, seamTopY, x, seamBottomY, color, 2);
+
+	for (let i = 0; i < halfH - 1; i++) {
+		const py = sideBottomY + 1 + i;
+		const inset = i * step;
+		const leftSpanX = leftX + inset;
+		const rightSpanX = rightX - (step - 1) - inset;
+		raster.fillRect(leftSpanX, py, step, 1, color);
+		raster.fillRect(rightSpanX, py, step, 1, color);
+	}
+
+	raster.fillRect(x - 2, seamBottomY, 4, 1, color);
+}
+
+function fillAxisAlignedLeftFace(
+	raster: Raster,
+	x: number,
+	y: number,
+	w: number,
+	h: number,
+	depth: number,
+	color: RgbaColor
+): void {
+	const halfW = w / 2;
+	const halfH = h / 2;
+	const step = Math.max(1, Math.round(w / h));
+	const leftX = x - halfW;
+	const seamLeftX = x - 1;
+	const sideTopY = y + halfH;
+	const seamTopY = y + h;
+	const sideBottomY = sideTopY + depth - 1;
+	const seamBottomY = seamTopY + depth - 1;
+
+	for (let py = sideTopY; py <= seamBottomY; py++) {
+		let spanLeft = leftX;
+		let spanRight: number;
+
+		if (py <= seamTopY) {
+			const topIndex = py - sideTopY;
+			const topOffset = Math.min(topIndex * step + (step - 1), halfW - 1);
+			spanRight = leftX + topOffset;
+		} else {
+			spanRight = seamLeftX;
+		}
+
+		if (py >= sideBottomY + 1) {
+			const bottomIndex = py - (sideBottomY + 1);
+			const bottomOffset = Math.min(bottomIndex * step, halfW - step);
+			spanLeft = leftX + bottomOffset;
+		}
+
+		const width = spanRight - spanLeft + 1;
+		if (width > 0) {
+			raster.fillRect(spanLeft, py, width, 1, color);
+		}
+	}
+}
+
+function fillAxisAlignedRightFace(
+	raster: Raster,
+	x: number,
+	y: number,
+	w: number,
+	h: number,
+	depth: number,
+	color: RgbaColor
+): void {
+	const halfW = w / 2;
+	const halfH = h / 2;
+	const step = Math.max(1, Math.round(w / h));
+	const rightX = x + halfW - 1;
+	const seamRightX = x;
+	const sideTopY = y + halfH;
+	const seamTopY = y + h;
+	const sideBottomY = sideTopY + depth - 1;
+	const seamBottomY = seamTopY + depth - 1;
+
+	for (let py = sideTopY; py <= seamBottomY; py++) {
+		let spanLeft: number;
+		let spanRight = rightX;
+
+		if (py <= seamTopY) {
+			const topIndex = py - sideTopY;
+			const topOffset = Math.min(topIndex * step + (step - 1), halfW - 1);
+			spanLeft = rightX - topOffset;
+		} else {
+			spanLeft = seamRightX;
+		}
+
+		if (py >= sideBottomY + 1) {
+			const bottomIndex = py - (sideBottomY + 1);
+			const bottomOffset = Math.min(bottomIndex * step, halfW - step);
+			spanRight = rightX - bottomOffset;
+		}
+
+		const width = spanRight - spanLeft + 1;
+		if (width > 0) {
+			raster.fillRect(spanLeft, py, width, 1, color);
+		}
+	}
+}
+
+function fillIsoDiamondRows(
+	raster: Raster,
+	x: number,
+	y: number,
+	w: number,
+	h: number,
+	color: RgbaColor,
+	pattern?: PixelPattern
+): void {
+	const half = h / 2;
+	const step = Math.max(1, Math.round(w / h));
+	for (let row = 0; row < h; row++) {
+		const mirror = row < half ? row : h - 1 - row;
+		const rowWidth = step * 2 * (mirror + 1);
+		const left = x - rowWidth / 2;
+		raster.fillRect(left, y + row, rowWidth, 1, color, pattern);
+	}
+}
+
+function drawIsoDiamondOutlineRows(
+	raster: Raster,
+	x: number,
+	y: number,
+	w: number,
+	h: number,
+	color: RgbaColor
+): void {
+	const half = h / 2;
+	const step = Math.max(1, Math.round(w / h));
+	for (let row = 0; row < h; row++) {
+		const mirror = row < half ? row : h - 1 - row;
+		const rowWidth = step * 2 * (mirror + 1);
+		const left = x - rowWidth / 2;
+		const right = left + rowWidth - step;
+		raster.fillRect(left, y + row, step, 1, color);
+		raster.fillRect(right, y + row, step, 1, color);
+	}
+}
 
 function identityTransform(): TransformSpec {
 	return { translateX: 0, translateY: 0, flipX: false, flipY: false };
