@@ -29,28 +29,28 @@
 					EditorView.theme(
 						{
 							'&': {
-								backgroundColor: 'var(--bg-1)',
-								color: 'var(--text)'
+								backgroundColor: 'var(--bg-secondary)',
+								color: 'var(--text-primary)'
 							},
 							'.cm-content': {
-								caretColor: 'var(--accent)'
+								caretColor: 'var(--accent-color)'
 							},
 							'.cm-cursor, .cm-dropCursor': {
-								borderLeftColor: 'var(--accent)'
+								borderLeftColor: 'var(--accent-color)'
 							},
 							'.cm-gutters': {
-								backgroundColor: 'var(--bg-1)',
-								color: 'var(--muted)',
+								backgroundColor: 'var(--bg-secondary)',
+								color: 'var(--text-secondary)',
 								border: 'none'
 							},
 							'.cm-activeLineGutter': {
-								backgroundColor: 'var(--bg-2)'
+								backgroundColor: 'var(--bg-tertiary)'
 							},
 							'.cm-activeLine': {
 								backgroundColor: 'rgba(255,255,255,0.035)'
 							},
 							'.cm-selectionBackground, .cm-content ::selection': {
-								backgroundColor: 'rgba(183,193,207,0.24)'
+								backgroundColor: 'rgba(74,158,255,0.24)'
 							}
 						},
 						{ dark: true }
@@ -100,7 +100,8 @@
 	.editor-shell {
 		height: 100%;
 		min-height: 420px;
-		background: var(--bg-1);
+		background: var(--bg-secondary);
+		border: 0;
 	}
 
 	.editor-root {
@@ -113,7 +114,7 @@
 	}
 
 	:global(.cm-scroller) {
-		font-family: 'IBM Plex Mono', 'SFMono-Regular', Menlo, monospace;
+		font-family: var(--font-mono);
 		font-size: 13px;
 		line-height: 1.4;
 	}

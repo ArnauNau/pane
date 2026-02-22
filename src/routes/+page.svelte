@@ -100,12 +100,15 @@
 	}
 </script>
 
-<main class="page">
-	<header class="toolbar">
-		<h1>Iso Pixel Art Playground</h1>
+<main class="app-shell">
+	<header class="topbar">
+		<div class="brand">
+			<h1>PANE Playground</h1>
+			<p>Isometric Pixel Art Notation Engine</p>
+		</div>
 		<div class="controls">
 			<label>
-				Example
+				<span>Example</span>
 				<select
 					value={selectedExample}
 					onchange={(event) => {
@@ -119,7 +122,7 @@
 				</select>
 			</label>
 			<label>
-				Zoom
+				<span>Zoom</span>
 				<select
 					value={zoom}
 					onchange={(event) => {
@@ -133,8 +136,10 @@
 					<option value={8}>8x</option>
 				</select>
 			</label>
-			<button type="button" onclick={applySpec}>Apply</button>
-			<button type="button" class="secondary" onclick={exportPng} disabled={!hasRendered}>Export PNG</button>
+			<button type="button" class="btn-primary" onclick={applySpec}>Apply</button>
+			<button type="button" class="btn-secondary" onclick={exportPng} disabled={!hasRendered}
+				>Export PNG</button
+			>
 		</div>
 	</header>
 
@@ -206,29 +211,34 @@
 </main>
 
 <style>
-	.page {
+	.app-shell {
 		min-height: 100vh;
-		padding: 14px;
-		display: grid;
-		grid-template-rows: auto 1fr auto;
-		gap: 10px;
+		display: flex;
+		flex-direction: column;
+		background: var(--bg-primary);
 	}
 
-	.toolbar {
+	.topbar {
+		padding: 10px 14px;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 16px;
-		padding: 10px 0 12px;
-		background: transparent;
-		/*border-bottom: 1px solid var(--border);*/
+		border-bottom: 1px solid var(--border-color);
+		background: var(--bg-secondary);
+		gap: 12px;
 	}
 
-	h1 {
+	.brand h1 {
 		margin: 0;
-		font-size: 16px;
+		font-size: 14px;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
+	}
+
+	.brand p {
+		margin: 2px 0 0;
+		font-size: 12px;
+		color: var(--text-secondary);
 	}
 
 	.controls {
@@ -242,60 +252,85 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 6px;
-		color: var(--muted);
 		font-size: 12px;
+		color: var(--text-secondary);
+	}
+
+	label span {
+		color: var(--text-tertiary);
+		text-transform: uppercase;
+		font-size: 11px;
+		letter-spacing: 0.05em;
 	}
 
 	select,
 	button {
-		border: 1px solid #232932;
-		background: var(--bg-2);
-		color: var(--text);
-		padding: 6px 10px;
+		border: 1px solid var(--border-color);
+		background: var(--bg-primary);
+		color: var(--text-primary);
 		border-radius: 0;
+		padding: 6px 10px;
+		font-size: 12px;
 	}
 
-	button {
-		cursor: pointer;
-		background: #1c2129;
-		border-color: #2a313d;
+	.btn-primary {
+		background: var(--accent-color);
+		border-color: var(--accent-color);
+		color: #fff;
 	}
 
-	button.secondary {
-		background: #14181f;
-		border-color: #252a33;
+	.btn-primary:hover {
+		background: var(--accent-hover);
+		border-color: var(--accent-hover);
+	}
+
+	.btn-secondary {
+		background: var(--bg-tertiary);
 	}
 
 	button:disabled {
-		opacity: 0.5;
+		opacity: 0.45;
 		cursor: default;
+	}
+
+	.main-content {
+		flex: 1;
+		display: grid;
+		grid-template-columns: 320px minmax(0, 1fr);
+		min-height: 0;
+	}
+
+	.work-column {
+		min-width: 0;
+		display: grid;
+		grid-template-rows: minmax(0, 1fr) auto;
 	}
 
 	.workspace {
 		min-height: 0;
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		gap: 10px;
+		border-bottom: 1px solid var(--border-color);
 	}
 
 	.panel {
-		background: var(--bg-1);
-		min-height: 500px;
+		min-height: 0;
+		background: var(--bg-secondary);
 		display: flex;
 		flex-direction: column;
-		/*border-top: 1px solid var(--border);*/
+	}
+
+	.panel + .panel {
+		border-left: 1px solid var(--border-color);
 	}
 
 	.panel-title {
-		padding: 10px 6px;
-		/*border-bottom: 1px solid var(--border);*/
-		font-size: 12px;
-		color: var(--muted);
+		padding: 8px 12px;
+		border-bottom: 1px solid var(--border-color);
+		font-size: 11px;
+		color: var(--text-tertiary);
 		text-transform: uppercase;
-	}
-
-	.panel-editor {
-		min-width: 0;
+		letter-spacing: 0.06em;
 	}
 
 	.editor-fallback {
@@ -305,15 +340,11 @@
 		padding: 12px;
 		border: 0;
 		background: transparent;
-		color: var(--text);
-		font-family: 'IBM Plex Mono', 'SFMono-Regular', Menlo, monospace;
+		color: var(--text-primary);
+		font-family: var(--font-mono);
 		font-size: 13px;
 		resize: none;
 		outline: none;
-	}
-
-	.panel-preview {
-		min-width: 0;
 	}
 
 	.preview-surface {
@@ -321,13 +352,8 @@
 		min-height: 420px;
 		overflow: auto;
 		padding: 14px;
-		background-color: #0b0d11;
-		background-image: repeating-conic-gradient(
-			#101318 0deg 90deg,
-			#0b0d11 90deg 180deg,
-			#101318 180deg 270deg,
-			#0b0d11 270deg 360deg
-		);
+		background-color: #111111;
+		background-image: repeating-conic-gradient(#181818 0deg 90deg, #111111 90deg 180deg);
 		background-size: 20px 20px;
 	}
 
@@ -335,66 +361,89 @@
 		display: block;
 		image-rendering: pixelated;
 		background: transparent;
-		/*border: 1px solid #2a2f38;*/
 	}
 
 	.issues {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		gap: 10px;
 	}
 
 	.issue-column {
-		/*border-top: 1px solid var(--border);*/
-		background: transparent;
-		padding: 8px 0 0;
-		min-height: 140px;
+		padding: 12px;
+		background: var(--bg-secondary);
+	}
+
+	.issue-column + .issue-column {
+		border-left: 1px solid var(--border-color);
 	}
 
 	h2 {
 		margin: 0 0 8px;
-		font-size: 13px;
+		font-size: 11px;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
+		color: var(--text-tertiary);
 	}
 
 	.issue {
-		padding: 6px 8px;
+		padding: 8px;
 		margin-top: 8px;
-		border-left: 3px solid;
-		background: #0f1217;
+		border: 1px solid var(--border-color);
+		background: var(--bg-primary);
+		font-size: 12px;
 	}
 
 	.issue.error {
-		border-left-color: var(--err);
+		border-left: 3px solid var(--error-color);
 	}
 
 	.issue.warning {
-		border-left-color: var(--warn);
+		border-left: 3px solid var(--warn-color);
 	}
 
 	.path {
-		color: var(--muted);
-		font-family: 'IBM Plex Mono', 'SFMono-Regular', Menlo, monospace;
-		font-size: 12px;
+		color: var(--text-tertiary);
+		font-family: var(--font-mono);
+		font-size: 11px;
 		margin-bottom: 2px;
 	}
 
 	.hint {
-		color: var(--muted);
+		color: var(--text-secondary);
 		margin-top: 4px;
-		font-size: 12px;
+		font-size: 11px;
 	}
 
 	.empty {
-		color: var(--muted);
+		color: var(--text-secondary);
 		margin: 0;
+		font-size: 12px;
 	}
 
-	@media (max-width: 1100px) {
+	@media (max-width: 1280px) {
+		.main-content {
+			grid-template-columns: 280px minmax(0, 1fr);
+		}
+	}
+
+	@media (max-width: 1080px) {
+		.main-content {
+			grid-template-columns: 1fr;
+		}
+
+		.docs-column {
+			border-bottom: 1px solid var(--border-color);
+		}
+
 		.workspace,
 		.issues {
 			grid-template-columns: 1fr;
+		}
+
+		.panel + .panel,
+		.issue-column + .issue-column {
+			border-left: none;
+			border-top: 1px solid var(--border-color);
 		}
 	}
 </style>
