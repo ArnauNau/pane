@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
+	import NotationDocsSidebar from '$lib/components/NotationDocsSidebar.svelte';
 	import { DEFAULT_SPEC_JSON, EXAMPLE_SPECS } from '$lib/core/examples';
 	import { parseSpec } from '$lib/core/parser';
 	import { renderSpecToCanvas } from '$lib/core/renderer';
@@ -143,71 +144,79 @@
 		</div>
 	</header>
 
-	<section class="workspace">
-		<div class="panel panel-editor">
-			<div class="panel-title">Spec (JSON)</div>
-			{#if CodeEditorComponent}
-				<CodeEditorComponent value={editorValue} onChange={onEditorChange} />
-			{:else}
-				<textarea
-					class="editor-fallback"
-					value={editorValue}
-					oninput={(event) => {
-						const target = event.currentTarget as HTMLTextAreaElement;
-						onEditorChange(target.value);
-					}}
-				></textarea>
-			{/if}
+	<div class="main-content">
+		<div class="docs-column">
+			<NotationDocsSidebar />
 		</div>
 
-		<div class="panel panel-preview">
-			<div class="panel-title">Preview</div>
-			<div class="preview-surface">
-				<canvas
-					bind:this={canvasEl}
-					width={canvasWidth}
-					height={canvasHeight}
-					style={`width:${canvasWidth * zoom}px;height:${canvasHeight * zoom}px;`}
-				></canvas>
-			</div>
-		</div>
-	</section>
+		<div class="work-column">
+			<section class="workspace">
+				<div class="panel panel-editor">
+					<div class="panel-title">Spec (JSON)</div>
+					{#if CodeEditorComponent}
+						<CodeEditorComponent value={editorValue} onChange={onEditorChange} />
+					{:else}
+						<textarea
+							class="editor-fallback"
+							value={editorValue}
+							oninput={(event) => {
+								const target = event.currentTarget as HTMLTextAreaElement;
+								onEditorChange(target.value);
+							}}
+						></textarea>
+					{/if}
+				</div>
 
-	<section class="issues">
-		<div class="issue-column">
-			<h2>Errors</h2>
-			{#if parseErrors.length === 0 && renderErrors.length === 0}
-				<p class="empty">No errors.</p>
-			{:else}
-				{#each [...parseErrors, ...renderErrors] as issue}
-					<div class="issue error">
-						<div class="path">{issue.path}</div>
-						<div>{issue.message}</div>
-						{#if issue.hint}
-							<div class="hint">{issue.hint}</div>
-						{/if}
+				<div class="panel panel-preview">
+					<div class="panel-title">Preview</div>
+					<div class="preview-surface">
+						<canvas
+							bind:this={canvasEl}
+							width={canvasWidth}
+							height={canvasHeight}
+							style={`width:${canvasWidth * zoom}px;height:${canvasHeight * zoom}px;`}
+						></canvas>
 					</div>
-				{/each}
-			{/if}
-		</div>
+				</div>
+			</section>
 
-		<div class="issue-column">
-			<h2>Warnings</h2>
-			{#if parseWarnings.length === 0 && renderWarnings.length === 0}
-				<p class="empty">No warnings.</p>
-			{:else}
-				{#each [...parseWarnings, ...renderWarnings] as issue}
-					<div class="issue warning">
-						<div class="path">{issue.path}</div>
-						<div>{issue.message}</div>
-						{#if issue.hint}
-							<div class="hint">{issue.hint}</div>
-						{/if}
-					</div>
-				{/each}
-			{/if}
+			<section class="issues">
+				<div class="issue-column">
+					<h2>Errors</h2>
+					{#if allErrors.length === 0}
+						<p class="empty">No errors.</p>
+					{:else}
+						{#each allErrors as issue}
+							<div class="issue error">
+								<div class="path">{issue.path}</div>
+								<div>{issue.message}</div>
+								{#if issue.hint}
+									<div class="hint">{issue.hint}</div>
+								{/if}
+							</div>
+						{/each}
+					{/if}
+				</div>
+
+				<div class="issue-column">
+					<h2>Warnings</h2>
+					{#if allWarnings.length === 0}
+						<p class="empty">No warnings.</p>
+					{:else}
+						{#each allWarnings as issue}
+							<div class="issue warning">
+								<div class="path">{issue.path}</div>
+								<div>{issue.message}</div>
+								{#if issue.hint}
+									<div class="hint">{issue.hint}</div>
+								{/if}
+							</div>
+						{/each}
+					{/if}
+				</div>
+			</section>
 		</div>
-	</section>
+	</div>
 </main>
 
 <style>
@@ -298,6 +307,10 @@
 		display: grid;
 		grid-template-columns: 320px minmax(0, 1fr);
 		min-height: 0;
+	}
+
+	.docs-column {
+		min-width: 0;
 	}
 
 	.work-column {
