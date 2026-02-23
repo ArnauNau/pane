@@ -9,11 +9,21 @@
 
 	const STORAGE_KEY = 'pane-playground';
 	const PERSIST_DEBOUNCE_MS = 400;
+	const ZOOM_MIN = 0.5;
+	const ZOOM_MAX = 32;
+	const ZOOM_SENSITIVITY = 0.002;
 
 	let editorValue = $state(DEFAULT_SPEC_JSON);
 	let persistTimeoutId = 0;
 	let selectedExample = $state(EXAMPLE_SPECS[0].id);
 	let zoom = $state(4);
+	let panX = $state(0);
+	let panY = $state(0);
+	let isPanning = $state(false);
+	let panStartX = 0;
+	let panStartY = 0;
+	let panOriginX = 0;
+	let panOriginY = 0;
 	let canvasWidth = $state(256);
 	let canvasHeight = $state(256);
 	let hasRendered = $state(false);
@@ -22,12 +32,16 @@
 	let renderErrors = $state<Issue[]>([]);
 	let renderWarnings = $state<Issue[]>([]);
 	let canvasEl: HTMLCanvasElement | undefined;
+	let previewSurfaceEl: HTMLDivElement | undefined;
 	let CodeEditorComponent = $state<null | typeof import('$lib/components/CodeEditor.svelte').default>(
 		null
 	);
 
 	const allErrors = $derived([...parseErrors, ...renderErrors]);
 	const allWarnings = $derived([...parseWarnings, ...renderWarnings]);
+	const zoomDisplay = $derived(
+		zoom === Math.round(zoom) ? `${zoom}x` : `${zoom.toFixed(1)}x`
+	);
 
 	onMount(() => {
 		void import('$lib/components/CodeEditor.svelte').then((module) => {
@@ -47,6 +61,10 @@
 		if (persistTimeoutId) {
 			clearTimeout(persistTimeoutId);
 			persistToStorage(editorValue);
+		}
+		if (browser) {
+			window.removeEventListener('mousemove', onPanMove);
+			window.removeEventListener('mouseup', onPanEnd);
 		}
 	});
 
@@ -87,6 +105,7 @@
 		parseWarnings = [];
 		renderWarnings = [];
 		hasRendered = false;
+		[panX, panY] = clampPan(panX, panY, zoom);
 	}
 
 	function applySpec(): void {
@@ -105,6 +124,7 @@
 		parseWarnings = parsed.warnings;
 		canvasWidth = parsed.spec.canvas.width;
 		canvasHeight = parsed.spec.canvas.height;
+		[panX, panY] = clampPan(panX, panY, zoom);
 		if (!canvasEl) {
 			renderErrors = [{ path: '/canvas', message: 'Canvas element is unavailable.' }];
 			hasRendered = false;
@@ -115,6 +135,68 @@
 		renderWarnings = result.warnings;
 		renderErrors = result.errors;
 		hasRendered = result.errors.length === 0;
+	}
+
+	function clampPan(x: number, y: number, z: number): [number, number] {
+		if (!previewSurfaceEl) return [x, y];
+		const vw = previewSurfaceEl.clientWidth;
+		const vh = previewSurfaceEl.clientHeight;
+		const sw = canvasWidth * z;
+		const sh = canvasHeight * z;
+
+		if (sw <= vw) {
+			x = (vw - sw) / 2;
+		} else {
+			x = Math.min(0, Math.max(vw - sw, x));
+		}
+		if (sh <= vh) {
+			y = (vh - sh) / 2;
+		} else {
+			y = Math.min(0, Math.max(vh - sh, y));
+		}
+		return [x, y];
+	}
+
+	function onPanStart(e: MouseEvent): void {
+		if (e.button !== 0) return;
+		isPanning = true;
+		panStartX = e.clientX;
+		panStartY = e.clientY;
+		panOriginX = panX;
+		panOriginY = panY;
+		window.addEventListener('mousemove', onPanMove);
+		window.addEventListener('mouseup', onPanEnd);
+	}
+
+	function onPanMove(e: MouseEvent): void {
+		[panX, panY] = clampPan(
+			panOriginX + (e.clientX - panStartX),
+			panOriginY + (e.clientY - panStartY),
+			zoom
+		);
+	}
+
+	function onPanEnd(): void {
+		isPanning = false;
+		window.removeEventListener('mousemove', onPanMove);
+		window.removeEventListener('mouseup', onPanEnd);
+	}
+
+	function onZoomWheel(e: WheelEvent): void {
+		e.preventDefault();
+		if (!previewSurfaceEl) return;
+		const rect = previewSurfaceEl.getBoundingClientRect();
+		const mx = e.clientX - rect.left;
+		const my = e.clientY - rect.top;
+
+		const oldZoom = zoom;
+		const factor = Math.exp(-e.deltaY * ZOOM_SENSITIVITY);
+		const newZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, oldZoom * factor));
+
+		const rawX = mx - (mx - panX) * (newZoom / oldZoom);
+		const rawY = my - (my - panY) * (newZoom / oldZoom);
+		[panX, panY] = clampPan(rawX, rawY, newZoom);
+		zoom = newZoom;
 	}
 
 	function exportPng(): void {
@@ -153,17 +235,21 @@
 			</label>
 			<label>
 				<span>Zoom</span>
+				<span class="zoom-display">{zoomDisplay}</span>
 				<select
-					value={zoom}
 					onchange={(event) => {
 						const target = event.currentTarget as HTMLSelectElement;
 						zoom = Number(target.value);
+						[panX, panY] = clampPan(panX, panY, zoom);
+						target.value = '';
 					}}
 				>
+					<option value="" disabled selected>Presets</option>
 					<option value={1}>1x</option>
 					<option value={2}>2x</option>
 					<option value={4}>4x</option>
 					<option value={8}>8x</option>
+					<option value={16}>16x</option>
 				</select>
 			</label>
 			<button type="button" class="btn-primary" onclick={applySpec}>Apply</button>
@@ -198,13 +284,24 @@
 
 				<div class="panel panel-preview">
 					<div class="panel-title">Preview</div>
-					<div class="preview-surface">
-						<canvas
-							bind:this={canvasEl}
-							width={canvasWidth}
-							height={canvasHeight}
-							style={`width:${canvasWidth * zoom}px;height:${canvasHeight * zoom}px;`}
-						></canvas>
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div
+						class="preview-surface"
+						class:panning={isPanning}
+						bind:this={previewSurfaceEl}
+						onmousedown={onPanStart}
+						onwheel={onZoomWheel}
+					>
+						<div
+							class="canvas-bounds"
+							style={`width:${canvasWidth}px;height:${canvasHeight}px;transform-origin:0 0;transform:translate(${panX}px,${panY}px) scale(${zoom});box-shadow:0 0 0 ${1 / zoom}px rgba(255,255,255,0.12), 0 0 0 9999px rgba(0,0,0,0.15);`}
+						>
+							<canvas
+								bind:this={canvasEl}
+								width={canvasWidth}
+								height={canvasHeight}
+							></canvas>
+						</div>
 					</div>
 				</div>
 			</section>
@@ -301,6 +398,16 @@
 		letter-spacing: 0.05em;
 	}
 
+	.zoom-display {
+		color: var(--text-primary) !important;
+		font-family: var(--font-mono);
+		font-size: 12px !important;
+		text-transform: none !important;
+		letter-spacing: 0 !important;
+		min-width: 3ch;
+		text-align: right;
+	}
+
 	select,
 	button {
 		border: 1px solid var(--border-color);
@@ -392,15 +499,26 @@
 	.preview-surface {
 		flex: 1;
 		min-height: 420px;
-		overflow: auto;
+		overflow: hidden;
 		padding: 14px;
 		background-color: #111111;
 		background-image: repeating-conic-gradient(#181818 0deg 90deg, #111111 90deg 180deg);
 		background-size: 20px 20px;
+		cursor: grab;
+	}
+
+	.preview-surface.panning {
+		cursor: grabbing;
+	}
+
+	.canvas-bounds {
+		overflow: hidden;
 	}
 
 	canvas {
 		display: block;
+		width: 100%;
+		height: 100%;
 		image-rendering: pixelated;
 		background: transparent;
 	}
