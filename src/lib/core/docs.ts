@@ -1,3 +1,13 @@
+import { EXAMPLE_SPECS } from '$lib/core/examples';
+import { PANL_JSON_SCHEMA } from '$lib/core/schema';
+
+export const PANL_SHORT_NAME = 'PANL';
+export const PANL_LANGUAGE_NAME = 'Pixel Art Notation Language';
+export const PANL_VERSION = '0.1';
+export const PANL_SPEC_URL = '/docs';
+export const PANL_JSON_URL = '/docs/panl.json';
+export const PANL_MARKDOWN_URL = '/docs/panl.md';
+
 export interface NotationDocField {
 	name: string;
 	type: string;
@@ -5,10 +15,12 @@ export interface NotationDocField {
 	description: string;
 }
 
+export type NotationDocKind = 'primitive' | 'helper' | 'root';
+
 export interface NotationDoc {
 	id: string;
 	title: string;
-	kind: 'primitive' | 'helper' | 'root';
+	kind: NotationDocKind;
 	signature: string;
 	summary: string;
 	fields: NotationDocField[];
@@ -328,3 +340,118 @@ export const NOTATION_DOCS: NotationDoc[] = [
 		]
 	}
 ];
+
+export interface PanlExampleDoc {
+	id: string;
+	label: string;
+	spec: unknown;
+}
+
+export interface PanlSpecDocument {
+	name: string;
+	version: string;
+	canonicalPath: string;
+	machineReadablePath: string;
+	markdownPath: string;
+	schema: unknown;
+	entries: NotationDoc[];
+	examples: PanlExampleDoc[];
+}
+
+const PANL_EXAMPLES: PanlExampleDoc[] = EXAMPLE_SPECS.map((example) => ({
+	id: example.id,
+	label: example.label,
+	spec: JSON.parse(example.json) as unknown
+}));
+
+export function getNotationDocsByKind(kind: NotationDocKind): NotationDoc[] {
+	return NOTATION_DOCS.filter((doc) => doc.kind === kind);
+}
+
+export function buildPanlSpecDocument(): PanlSpecDocument {
+	return {
+		name: PANL_LANGUAGE_NAME,
+		version: PANL_VERSION,
+		canonicalPath: PANL_SPEC_URL,
+		machineReadablePath: PANL_JSON_URL,
+		markdownPath: PANL_MARKDOWN_URL,
+		schema: PANL_JSON_SCHEMA,
+		entries: NOTATION_DOCS,
+		examples: PANL_EXAMPLES
+	};
+}
+
+export function buildPanlMarkdown(): string {
+	const lines: string[] = [];
+	const groups: NotationDocKind[] = ['root', 'primitive', 'helper'];
+
+	lines.push(`# ${PANL_SHORT_NAME} Specification v${PANL_VERSION}`);
+	lines.push('');
+	lines.push(`${PANL_LANGUAGE_NAME} defines deterministic, anti-aliased-free isometric pixel art assets.`);
+	lines.push('');
+	lines.push('## Canonical Endpoints');
+	lines.push('');
+	lines.push(`- Human-readable: \`${PANL_SPEC_URL}\``);
+	lines.push(`- Machine-readable JSON: \`${PANL_JSON_URL}\``);
+	lines.push(`- Markdown export: \`${PANL_MARKDOWN_URL}\``);
+	lines.push('');
+	lines.push('## Document Structure');
+	lines.push('');
+	lines.push('```json');
+	lines.push('{');
+	lines.push('  "version": "0.1",');
+	lines.push('  "canvas": { "width": 256, "height": 256 },');
+	lines.push('  "palette": { "colors": { "name": "#RRGGBB" } },');
+	lines.push('  "seed": 42,');
+	lines.push('  "definitions": { "name": { "type": "..." } },');
+	lines.push('  "asset": { "id": "asset_id", "commands": [{ "type": "..." }] }');
+	lines.push('}');
+	lines.push('```');
+	lines.push('');
+
+	for (const group of groups) {
+		const docs = getNotationDocsByKind(group);
+		lines.push(`## ${capitalize(group)} Commands`);
+		lines.push('');
+
+		for (const doc of docs) {
+			lines.push(`### \`${doc.title}\``);
+			lines.push('');
+			lines.push(`- Signature: \`${doc.signature}\``);
+			lines.push(`- Summary: ${doc.summary}`);
+			lines.push('');
+			lines.push('| Field | Type | Required | Description |');
+			lines.push('| --- | --- | --- | --- |');
+			for (const field of doc.fields) {
+				lines.push(
+					`| \`${escapePipes(field.name)}\` | \`${escapePipes(field.type)}\` | ${field.required ? 'yes' : 'no'} | ${escapePipes(field.description)} |`
+				);
+			}
+			lines.push('');
+
+			if (doc.notes?.length) {
+				lines.push('Notes:');
+				for (const note of doc.notes) {
+					lines.push(`- ${note}`);
+				}
+				lines.push('');
+			}
+		}
+	}
+
+	lines.push('## JSON Schema');
+	lines.push('');
+	lines.push('```json');
+	lines.push(JSON.stringify(PANL_JSON_SCHEMA, null, 2));
+	lines.push('```');
+
+	return lines.join('\n');
+}
+
+function capitalize(value: string): string {
+	return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function escapePipes(value: string): string {
+	return value.replaceAll('|', '\\|');
+}

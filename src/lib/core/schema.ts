@@ -162,7 +162,11 @@ const commandSchema = {
 	oneOf: [isoTileSchema, isoPrismSchema, rectSchema, lineSchema, polygonSchema, useSchema]
 };
 
-const assetSchema = {
+export const PANL_JSON_SCHEMA = {
+	$schema: 'http://json-schema.org/draft-07/schema#',
+	$id: 'https://pane.dev/schemas/panl-0.1.schema.json',
+	title: 'PANL Asset Spec',
+	description: 'Pixel Art Notation Language (PANL) v0.1 asset document schema.',
 	type: 'object',
 	properties: {
 		version: { type: 'string', minLength: 1 },
@@ -223,7 +227,7 @@ const ajv = new Ajv({
 	allowUnionTypes: true
 });
 
-const validate = ajv.compile<AssetSpec>(assetSchema);
+const validate = ajv.compile<AssetSpec>(PANL_JSON_SCHEMA);
 
 export function validateSchema(spec: unknown): { ok: true; data: AssetSpec } | { ok: false; errors: Issue[] } {
 	const ok = validate(spec);

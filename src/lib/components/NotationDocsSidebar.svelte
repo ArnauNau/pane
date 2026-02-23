@@ -1,9 +1,17 @@
 <script lang="ts">
-	import { NOTATION_DOCS, type NotationDoc } from '$lib/core/docs';
+	import {
+		NOTATION_DOCS,
+		PANL_JSON_URL,
+		PANL_MARKDOWN_URL,
+		PANL_SHORT_NAME,
+		PANL_SPEC_URL,
+		getNotationDocsByKind,
+		type NotationDoc
+	} from '$lib/core/docs';
 
-	const primitives = NOTATION_DOCS.filter((doc) => doc.kind === 'primitive');
-	const helpers = NOTATION_DOCS.filter((doc) => doc.kind === 'helper');
-	const roots = NOTATION_DOCS.filter((doc) => doc.kind === 'root');
+	const primitives = getNotationDocsByKind('primitive');
+	const helpers = getNotationDocsByKind('helper');
+	const roots = getNotationDocsByKind('root');
 
 	let selectedId = $state(roots[0]?.id ?? primitives[0]?.id ?? '');
 	const selectedDoc = $derived(
@@ -20,8 +28,13 @@
 
 <aside class="docs-sidebar">
 	<div class="docs-header">
-		<h2>PANEL Docs</h2>
+		<h2>{PANL_SHORT_NAME} Docs</h2>
 		<p>Pixel Art Notation Language</p>
+		<nav class="doc-links">
+			<a href={PANL_SPEC_URL}>Full</a>
+			<a href={PANL_JSON_URL}>JSON</a>
+			<a href={PANL_MARKDOWN_URL}>MD</a>
+		</nav>
 	</div>
 
 	<div class="docs-groups">
@@ -124,6 +137,25 @@
 		margin: 3px 0 0;
 		font-size: 12px;
 		color: var(--text-secondary);
+	}
+
+	.doc-links {
+		margin-top: 8px;
+		display: flex;
+		gap: 6px;
+	}
+
+	.doc-links a {
+		padding: 4px 6px;
+		font-size: 11px;
+		border: 1px solid var(--border-color);
+		background: var(--bg-primary);
+		color: var(--text-primary);
+		text-decoration: none;
+	}
+
+	.doc-links a:hover {
+		background: var(--bg-tertiary);
 	}
 
 	.docs-groups {
