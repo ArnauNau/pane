@@ -1,15 +1,17 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import NotationDocsSidebar from '$lib/components/NotationDocsSidebar.svelte';
 	import { DEFAULT_SPEC_JSON, EXAMPLE_SPECS } from '$lib/core/examples';
 	import { parseSpec } from '$lib/core/parser';
 	import { renderSpecToCanvas } from '$lib/core/renderer';
 	import type { Issue } from '$lib/core/types';
 
-	const STORAGE_KEY = 'iso-pixel-art-spec';
+	const STORAGE_KEY = 'pane-playground';
+	const PERSIST_DEBOUNCE_MS = 400;
 
 	let editorValue = $state(DEFAULT_SPEC_JSON);
+	let persistTimeoutId = 0;
 	let selectedExample = $state(EXAMPLE_SPECS[0].id);
 	let zoom = $state(4);
 	let canvasWidth = $state(256);
@@ -23,6 +25,9 @@
 	let CodeEditorComponent = $state<null | typeof import('$lib/components/CodeEditor.svelte').default>(
 		null
 	);
+
+	const allErrors = $derived([...parseErrors, ...renderErrors]);
+	const allWarnings = $derived([...parseWarnings, ...renderWarnings]);
 
 	onMount(() => {
 		void import('$lib/components/CodeEditor.svelte').then((module) => {
@@ -38,10 +43,29 @@
 		applySpec();
 	});
 
+	onDestroy(() => {
+		if (persistTimeoutId) {
+			clearTimeout(persistTimeoutId);
+			persistToStorage(editorValue);
+		}
+	});
+
+	function persistToStorage(value: string): void {
+		if (browser) {
+			localStorage.setItem(STORAGE_KEY, value);
+		}
+	}
+
 	function onEditorChange(nextValue: string): void {
 		editorValue = nextValue;
 		if (browser) {
-			localStorage.setItem(STORAGE_KEY, editorValue);
+			if (persistTimeoutId) {
+				clearTimeout(persistTimeoutId);
+			}
+			persistTimeoutId = setTimeout(() => {
+				persistToStorage(editorValue);
+				persistTimeoutId = 0;
+			}, PERSIST_DEBOUNCE_MS);
 		}
 	}
 
@@ -51,8 +75,13 @@
 			return;
 		}
 
+		if (persistTimeoutId) {
+			clearTimeout(persistTimeoutId);
+			persistTimeoutId = 0;
+		}
 		selectedExample = id;
-		onEditorChange(example.json);
+		editorValue = example.json;
+		persistToStorage(example.json);
 		parseErrors = [];
 		renderErrors = [];
 		parseWarnings = [];
