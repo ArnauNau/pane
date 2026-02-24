@@ -28,13 +28,17 @@
 
 <aside class="docs-sidebar">
 	<div class="docs-header">
-		<h2>{PANL_SHORT_NAME} Docs</h2>
-		<p>Pixel Art Notation Language</p>
-		<nav class="doc-links">
-			<a href={PANL_SPEC_URL}>Full</a>
-			<a href={PANL_JSON_URL}>JSON</a>
-			<a href={PANL_MARKDOWN_URL}>MD</a>
-		</nav>
+		<div class="docs-header-row">
+			<div class="docs-title-block">
+				<h2>{PANL_SHORT_NAME} Docs</h2>
+				<p>Pixel Art Notation Language</p>
+			</div>
+			<nav class="doc-links">
+				<a href={PANL_SPEC_URL}>Full</a>
+				<a href={PANL_JSON_URL}>JSON</a>
+				<a href={PANL_MARKDOWN_URL}>MD</a>
+			</nav>
+		</div>
 	</div>
 
 	<div class="docs-groups">
@@ -116,13 +120,26 @@
 		flex-direction: column;
 		height: 100%;
 		background: var(--bg-secondary);
-		border-right: 1px solid var(--border-color);
 		min-width: 280px;
 	}
 
 	.docs-header {
 		padding: 12px;
 		border-bottom: 1px solid var(--border-color);
+	}
+
+	.docs-header-row {
+		display: flex;
+		align-items: stretch;
+		justify-content: space-between;
+		gap: 10px;
+	}
+
+	.docs-title-block {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		min-width: 0;
 	}
 
 	h2 {
@@ -140,22 +157,36 @@
 	}
 
 	.doc-links {
-		margin-top: 8px;
-		display: flex;
-		gap: 6px;
+		display: inline-flex;
+		align-items: stretch;
+		align-self: stretch;
+		gap: 0;
+		flex-shrink: 0;
 	}
 
 	.doc-links a {
-		padding: 4px 6px;
+		display: inline-flex;
+		align-items: center;
+		padding: 0 8px;
 		font-size: 11px;
+		line-height: 1;
 		border: 1px solid var(--border-color);
 		background: var(--bg-primary);
-		color: var(--text-primary);
+		color: var(--text-secondary);
 		text-decoration: none;
+		white-space: nowrap;
+		margin-left: -1px;
+	}
+
+	.doc-links a:first-child {
+		margin-left: 0;
 	}
 
 	.doc-links a:hover {
+		border-color: var(--text-tertiary);
+		color: var(--text-primary);
 		background: var(--bg-tertiary);
+		z-index: 2;
 	}
 
 	.docs-groups {
@@ -284,10 +315,9 @@
 	}
 
 	.notes {
-		margin-top: 10px;
-		padding: 8px;
-		border: 1px solid var(--border-color);
-		background: var(--bg-primary);
+		margin-top: 12px;
+		padding-top: 10px;
+		border-top: 1px solid var(--border-color);
 	}
 
 	h5 {
@@ -295,16 +325,27 @@
 		font-size: 11px;
 		text-transform: uppercase;
 		color: var(--text-tertiary);
+		letter-spacing: 0.05em;
 	}
 
 	.notes ul {
 		margin: 0;
-		padding-left: 16px;
+		padding: 0;
+		list-style: none;
 	}
 
 	.notes li {
 		font-size: 11px;
 		color: var(--text-secondary);
-		margin: 2px 0;
+		margin: 4px 0;
+		position: relative;
+		padding-left: 12px;
+	}
+
+	.notes li::before {
+		content: '•';
+		position: absolute;
+		left: 0;
+		color: var(--text-tertiary);
 	}
 </style>
