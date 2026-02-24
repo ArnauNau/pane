@@ -294,7 +294,7 @@
 					>
 						<div
 							class="canvas-bounds"
-							style={`width:${canvasWidth}px;height:${canvasHeight}px;transform-origin:0 0;transform:translate(${panX}px,${panY}px) scale(${zoom});box-shadow:0 0 0 ${1 / zoom}px rgba(255,255,255,0.12), 0 0 0 9999px rgba(0,0,0,0.15);`}
+							style={`position:absolute;left:0;top:0;width:${canvasWidth * zoom}px;height:${canvasHeight * zoom}px;transform:translate(${panX}px,${panY}px);box-shadow:0 0 0 1px rgba(255,255,255,0.12), 0 0 0 9999px rgba(0,0,0,0.15);`}
 						>
 							<canvas
 								bind:this={canvasEl}
@@ -497,10 +497,10 @@
 	}
 
 	.preview-surface {
+		position: relative;
 		flex: 1;
 		min-height: 420px;
 		overflow: hidden;
-		padding: 14px;
 		background-color: #111111;
 		background-image: repeating-conic-gradient(#181818 0deg 90deg, #111111 90deg 180deg);
 		background-size: 20px 20px;
