@@ -13,6 +13,15 @@
 	const ZOOM_MAX = 32;
 	const ZOOM_SENSITIVITY = 0.002;
 
+	const DOCS_TOGGLE_WIDTH = 40;
+	const MIN_DOCS_CONTENT_WIDTH = 300;
+	const MIN_DOCS_WIDTH = DOCS_TOGGLE_WIDTH + MIN_DOCS_CONTENT_WIDTH;
+	const MAX_DOCS_WIDTH = 620;
+	const CLOSED_DOCS_WIDTH = DOCS_TOGGLE_WIDTH + 1;
+	const WORKSPACE_HANDLE_WIDTH = 1;
+	const MIN_EDITOR_WIDTH = 300;
+	const MIN_PREVIEW_WIDTH = 280;
+
 	let editorValue = $state(DEFAULT_SPEC_JSON);
 	let persistTimeoutId = 0;
 	let selectedExample = $state(EXAMPLE_SPECS[0].id);
@@ -37,8 +46,26 @@
 		null
 	);
 
+	let docsOpen = $state(true);
+	let docsWidth = $state(360);
+	let editorPaneWidth = $state(560);
+	let isDraggingDocs = $state(false);
+	let isDraggingWorkspace = $state(false);
+	let mainContentEl: HTMLDivElement | undefined;
+	let workspaceEl: HTMLElement | undefined;
+	let docsBodyEl = $state<HTMLDivElement | undefined>(undefined);
+	let docsResizeLeft = 0;
+	let docsResizeMin = MIN_DOCS_WIDTH;
+	let docsResizeMax = MAX_DOCS_WIDTH;
+	let workspaceResizeLeft = 0;
+	let workspaceResizeMaxEditor = MIN_EDITOR_WIDTH;
+
 	const allErrors = $derived([...parseErrors, ...renderErrors]);
 	const allWarnings = $derived([...parseWarnings, ...renderWarnings]);
+	const workspaceColumns = $derived(
+		`${editorPaneWidth}px ${WORKSPACE_HANDLE_WIDTH}px minmax(${MIN_PREVIEW_WIDTH}px,1fr)`
+	);
+	const docsShellWidth = $derived(docsOpen ? docsWidth : CLOSED_DOCS_WIDTH);
 	const zoomDisplay = $derived(
 		zoom === Math.round(zoom) ? `${zoom}x` : `${zoom.toFixed(1)}x`
 	);
@@ -53,8 +80,10 @@
 			if (persisted) {
 				editorValue = persisted;
 			}
+			window.addEventListener('resize', clampLayoutWidths);
 		}
 		applySpec();
+		clampLayoutWidths();
 	});
 
 	onDestroy(() => {
@@ -62,7 +91,10 @@
 			clearTimeout(persistTimeoutId);
 			persistToStorage(editorValue);
 		}
+		stopDocsResize();
+		stopWorkspaceResize();
 		if (browser) {
+			window.removeEventListener('resize', clampLayoutWidths);
 			window.removeEventListener('mousemove', onPanMove);
 			window.removeEventListener('mouseup', onPanEnd);
 		}
@@ -210,6 +242,119 @@
 		anchor.download = 'iso-asset.png';
 		anchor.click();
 	}
+
+	function startDocsResize(event: MouseEvent): void {
+		if (!browser || window.innerWidth <= 1080 || !mainContentEl) {
+			return;
+		}
+		event.preventDefault();
+		const rect = mainContentEl.getBoundingClientRect();
+		docsResizeLeft = rect.left;
+		docsResizeMin = getMinDocsWidth();
+		docsResizeMax = getMaxDocsWidth(rect.width);
+		isDraggingDocs = true;
+		window.addEventListener('mousemove', handleDocsResize);
+		window.addEventListener('mouseup', stopDocsResize);
+	}
+
+	function handleDocsResize(event: MouseEvent): void {
+		if (!isDraggingDocs) {
+			return;
+		}
+		docsWidth = clamp(event.clientX - docsResizeLeft, docsResizeMin, docsResizeMax);
+	}
+
+	function stopDocsResize(): void {
+		isDraggingDocs = false;
+		if (!browser) {
+			return;
+		}
+		window.removeEventListener('mousemove', handleDocsResize);
+		window.removeEventListener('mouseup', stopDocsResize);
+	}
+
+	function startWorkspaceResize(event: MouseEvent): void {
+		if (!browser || window.innerWidth <= 1080 || !workspaceEl) {
+			return;
+		}
+		event.preventDefault();
+		const rect = workspaceEl.getBoundingClientRect();
+		workspaceResizeLeft = rect.left;
+		workspaceResizeMaxEditor = Math.max(
+			MIN_EDITOR_WIDTH,
+			rect.width - MIN_PREVIEW_WIDTH - WORKSPACE_HANDLE_WIDTH
+		);
+		isDraggingWorkspace = true;
+		window.addEventListener('mousemove', handleWorkspaceResize);
+		window.addEventListener('mouseup', stopWorkspaceResize);
+	}
+
+	function handleWorkspaceResize(event: MouseEvent): void {
+		if (!isDraggingWorkspace) {
+			return;
+		}
+		editorPaneWidth = clamp(event.clientX - workspaceResizeLeft, MIN_EDITOR_WIDTH, workspaceResizeMaxEditor);
+	}
+
+	function stopWorkspaceResize(): void {
+		isDraggingWorkspace = false;
+		if (!browser) {
+			return;
+		}
+		window.removeEventListener('mousemove', handleWorkspaceResize);
+		window.removeEventListener('mouseup', stopWorkspaceResize);
+	}
+
+	function clamp(value: number, min: number, max: number): number {
+		return Math.min(max, Math.max(min, value));
+	}
+
+	function getMinDocsWidth(): number {
+		if (!browser || !docsBodyEl) {
+			return MIN_DOCS_WIDTH;
+		}
+		const sidebarEl = docsBodyEl.firstElementChild as HTMLElement | null;
+		if (!sidebarEl) {
+			return MIN_DOCS_WIDTH;
+		}
+		const rawMinWidth = Number.parseFloat(window.getComputedStyle(sidebarEl).minWidth);
+		const contentMinWidth =
+			Number.isFinite(rawMinWidth) && rawMinWidth > 0
+				? Math.ceil(rawMinWidth)
+				: MIN_DOCS_CONTENT_WIDTH;
+		return DOCS_TOGGLE_WIDTH + Math.max(MIN_DOCS_CONTENT_WIDTH, contentMinWidth);
+	}
+
+	function getMaxDocsWidth(mainContentWidth: number): number {
+		const reserveForWork = MIN_EDITOR_WIDTH + MIN_PREVIEW_WIDTH + WORKSPACE_HANDLE_WIDTH + 24;
+		const maxByLayout = mainContentWidth - reserveForWork;
+		const minDocsWidth = getMinDocsWidth();
+		return Math.max(minDocsWidth, Math.min(MAX_DOCS_WIDTH, maxByLayout));
+	}
+
+	function clampLayoutWidths(): void {
+		if (!browser || !mainContentEl) {
+			return;
+		}
+		const mainRect = mainContentEl.getBoundingClientRect();
+		const minDocsWidth = getMinDocsWidth();
+		const maxDocsWidth = getMaxDocsWidth(mainRect.width);
+		docsWidth = clamp(docsWidth, minDocsWidth, maxDocsWidth);
+
+		const availableWorkWidth = mainRect.width - (docsOpen ? docsWidth : CLOSED_DOCS_WIDTH);
+		const maxEditor = Math.max(
+			MIN_EDITOR_WIDTH,
+			availableWorkWidth - MIN_PREVIEW_WIDTH - WORKSPACE_HANDLE_WIDTH
+		);
+		editorPaneWidth = clamp(editorPaneWidth, MIN_EDITOR_WIDTH, maxEditor);
+	}
+
+	function toggleDocsPanel(): void {
+		docsOpen = !docsOpen;
+		if (docsOpen) {
+			clampLayoutWidths();
+		}
+	}
 </script>
 
 <main class="app-shell">
@@ -259,13 +404,37 @@
 		</div>
 	</header>
 
-	<div class="main-content">
-		<div class="docs-column">
-			<NotationDocsSidebar />
+	<div
+		class="main-content"
+		bind:this={mainContentEl}
+		class:dragging={isDraggingDocs || isDraggingWorkspace}
+	>
+		<div class="docs-shell" class:open={docsOpen} style={`--docs-shell-width:${docsShellWidth}px;`}>
+			<button
+				type="button"
+				class="panel-toggle"
+				onclick={toggleDocsPanel}
+				aria-label={docsOpen ? 'Hide docs panel' : 'Show docs panel'}
+			>
+				<span class="toggle-icon">{docsOpen ? '◀' : '▶'}</span>
+				<span class="toggle-text">{docsOpen ? 'Hide' : 'Docs'}</span>
+			</button>
+
+			{#if docsOpen}
+				<div class="docs-body" bind:this={docsBodyEl}>
+					<NotationDocsSidebar />
+				</div>
+				<button
+					type="button"
+					class="resizer-handle docs"
+					onmousedown={startDocsResize}
+					aria-label="Resize docs panel"
+				></button>
+			{/if}
 		</div>
 
 		<div class="work-column">
-			<section class="workspace">
+			<section class="workspace" bind:this={workspaceEl} style={`--workspace-cols:${workspaceColumns};`}>
 				<div class="panel panel-editor">
 					<div class="panel-title">Spec (JSON)</div>
 					{#if CodeEditorComponent}
@@ -281,6 +450,13 @@
 						></textarea>
 					{/if}
 				</div>
+
+				<button
+					type="button"
+					class="resizer-handle workspace"
+					onmousedown={startWorkspaceResize}
+					aria-label="Resize editor and preview panes"
+				></button>
 
 				<div class="panel panel-preview">
 					<div class="panel-title">Preview</div>
@@ -440,16 +616,93 @@
 
 	.main-content {
 		flex: 1;
-		display: grid;
-		grid-template-columns: 320px minmax(0, 1fr);
+		display: flex;
 		min-height: 0;
 	}
 
-	.docs-column {
+	.main-content.dragging {
+		user-select: none;
+		cursor: col-resize;
+	}
+
+	.docs-shell {
+		display: flex;
+		align-items: stretch;
+		flex: 0 0 auto;
+		inline-size: var(--docs-shell-width);
+		min-inline-size: var(--docs-shell-width);
+		max-inline-size: var(--docs-shell-width);
+		background: var(--bg-secondary);
+		border-right: none;
+		position: relative;
+		transition: inline-size 0.2s ease;
+		overflow: hidden;
+		z-index: 2;
+		--docs-toggle-width: 40px;
+	}
+
+	.docs-shell:not(.open) {
+		border-right: 1px solid var(--border-color);
+	}
+
+	.main-content.dragging .docs-shell {
+		transition: none;
+	}
+
+	.panel-toggle {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		gap: 0.35rem;
+		padding: 0.5rem;
+		background: transparent;
+		border: none;
+		color: var(--text-tertiary);
+		align-self: stretch;
+		border-right: 1px solid transparent;
+		flex: 0 0 var(--docs-toggle-width);
+		inline-size: var(--docs-toggle-width);
+		min-inline-size: var(--docs-toggle-width);
+		max-inline-size: var(--docs-toggle-width);
+		block-size: 100%;
+		min-block-size: 100%;
+		overflow: hidden;
+		white-space: nowrap;
+	}
+
+	.panel-toggle:hover {
+		color: var(--text-primary);
+		background: var(--bg-tertiary);
+	}
+
+	.docs-shell.open .panel-toggle {
+		border-right-color: var(--border-color);
+	}
+
+	.toggle-icon {
+		font-size: 0.7rem;
+		line-height: 1;
+		order: 2;
+	}
+
+	.toggle-text {
+		font-size: 0.7rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		writing-mode: vertical-rl;
+		text-orientation: mixed;
+		order: 1;
+	}
+
+	.docs-body {
+		flex: 1;
 		min-width: 0;
+		overflow: hidden;
 	}
 
 	.work-column {
+		flex: 1;
 		min-width: 0;
 		display: grid;
 		grid-template-rows: minmax(0, 1fr) auto;
@@ -458,8 +711,9 @@
 	.workspace {
 		min-height: 0;
 		display: grid;
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: var(--workspace-cols);
 		border-bottom: 1px solid var(--border-color);
+		background: var(--bg-secondary);
 	}
 
 	.panel {
@@ -467,10 +721,6 @@
 		background: var(--bg-secondary);
 		display: flex;
 		flex-direction: column;
-	}
-
-	.panel + .panel {
-		border-left: 1px solid var(--border-color);
 	}
 
 	.panel-title {
@@ -521,6 +771,66 @@
 		height: 100%;
 		image-rendering: pixelated;
 		background: transparent;
+	}
+
+	.resizer-handle {
+		background: transparent;
+		border: none;
+		padding: 0;
+		position: relative;
+		z-index: 20;
+	}
+
+	.resizer-handle.docs {
+		position: absolute;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		width: 1px;
+		cursor: col-resize;
+		background: var(--border-color);
+	}
+
+	.resizer-handle.docs::after {
+		content: '';
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		right: 0;
+		width: 12px;
+	}
+
+	.resizer-handle.docs:hover,
+	.resizer-handle.docs:active {
+		background: rgba(74, 158, 255, 0.75);
+	}
+
+	.resizer-handle.workspace {
+		width: 100%;
+		height: 100%;
+		cursor: col-resize;
+		background: var(--border-color);
+		border: none;
+		position: relative;
+	}
+
+	.resizer-handle.workspace::before {
+		content: none;
+	}
+
+	.resizer-handle.workspace::after {
+		content: '';
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: 50%;
+		width: 12px;
+		transform: translateX(-50%);
+	}
+
+	.resizer-handle.workspace:hover,
+	.resizer-handle.workspace:active {
+		background: rgba(74, 158, 255, 0.75);
 	}
 
 	.issues {
@@ -580,27 +890,59 @@
 		font-size: 12px;
 	}
 
-	@media (max-width: 1280px) {
-		.main-content {
-			grid-template-columns: 280px minmax(0, 1fr);
-		}
-	}
-
 	@media (max-width: 1080px) {
 		.main-content {
-			grid-template-columns: 1fr;
+			flex-direction: column;
 		}
 
-		.docs-column {
+		.docs-shell {
+			width: 100% !important;
+			min-width: 100% !important;
+			max-width: 100% !important;
+			inline-size: 100% !important;
+			min-inline-size: 100% !important;
+			max-inline-size: 100% !important;
+			border-right: none;
 			border-bottom: 1px solid var(--border-color);
+		}
+
+		.panel-toggle {
+			flex-direction: row;
+			justify-content: flex-start;
+			inline-size: 100%;
+			min-inline-size: 100%;
+			max-inline-size: 100%;
+			block-size: auto;
+			min-block-size: 0;
+			flex-basis: auto;
+			padding: 8px 10px;
+			border-right: none;
+			border-bottom: 1px solid var(--border-color);
+		}
+
+		.toggle-text {
+			writing-mode: horizontal-tb;
+			text-orientation: initial;
+		}
+
+		.docs-shell.open .panel-toggle {
+			border-right-color: transparent;
+		}
+
+		.resizer-handle.docs,
+		.resizer-handle.workspace {
+			display: none;
 		}
 
 		.workspace,
 		.issues {
-			grid-template-columns: 1fr;
+			grid-template-columns: 1fr !important;
 		}
 
-		.panel + .panel,
+		.workspace {
+			grid-template-rows: minmax(360px, 1fr) minmax(360px, 1fr);
+		}
+
 		.issue-column + .issue-column {
 			border-left: none;
 			border-top: 1px solid var(--border-color);

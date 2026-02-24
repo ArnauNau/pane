@@ -1,9 +1,17 @@
 <script lang="ts">
-	import { NOTATION_DOCS, type NotationDoc } from '$lib/core/docs';
+	import {
+		NOTATION_DOCS,
+		PANL_JSON_URL,
+		PANL_MARKDOWN_URL,
+		PANL_SHORT_NAME,
+		PANL_SPEC_URL,
+		getNotationDocsByKind,
+		type NotationDoc
+	} from '$lib/core/docs';
 
-	const primitives = NOTATION_DOCS.filter((doc) => doc.kind === 'primitive');
-	const helpers = NOTATION_DOCS.filter((doc) => doc.kind === 'helper');
-	const roots = NOTATION_DOCS.filter((doc) => doc.kind === 'root');
+	const primitives = getNotationDocsByKind('primitive');
+	const helpers = getNotationDocsByKind('helper');
+	const roots = getNotationDocsByKind('root');
 
 	let selectedId = $state(roots[0]?.id ?? primitives[0]?.id ?? '');
 	const selectedDoc = $derived(
@@ -20,8 +28,17 @@
 
 <aside class="docs-sidebar">
 	<div class="docs-header">
-		<h2>PANEL Docs</h2>
-		<p>Pixel Art Notation Language</p>
+		<div class="docs-header-row">
+			<div class="docs-title-block">
+				<h2>{PANL_SHORT_NAME} Docs</h2>
+				<p>Pixel Art Notation Language</p>
+			</div>
+			<nav class="doc-links">
+				<a href={PANL_SPEC_URL}>Full</a>
+				<a href={PANL_JSON_URL}>JSON</a>
+				<a href={PANL_MARKDOWN_URL}>MD</a>
+			</nav>
+		</div>
 	</div>
 
 	<div class="docs-groups">
@@ -103,13 +120,26 @@
 		flex-direction: column;
 		height: 100%;
 		background: var(--bg-secondary);
-		border-right: 1px solid var(--border-color);
 		min-width: 280px;
 	}
 
 	.docs-header {
 		padding: 12px;
 		border-bottom: 1px solid var(--border-color);
+	}
+
+	.docs-header-row {
+		display: flex;
+		align-items: stretch;
+		justify-content: space-between;
+		gap: 10px;
+	}
+
+	.docs-title-block {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		min-width: 0;
 	}
 
 	h2 {
@@ -124,6 +154,39 @@
 		margin: 3px 0 0;
 		font-size: 12px;
 		color: var(--text-secondary);
+	}
+
+	.doc-links {
+		display: inline-flex;
+		align-items: stretch;
+		align-self: stretch;
+		gap: 0;
+		flex-shrink: 0;
+	}
+
+	.doc-links a {
+		display: inline-flex;
+		align-items: center;
+		padding: 0 8px;
+		font-size: 11px;
+		line-height: 1;
+		border: 1px solid var(--border-color);
+		background: var(--bg-primary);
+		color: var(--text-secondary);
+		text-decoration: none;
+		white-space: nowrap;
+		margin-left: -1px;
+	}
+
+	.doc-links a:first-child {
+		margin-left: 0;
+	}
+
+	.doc-links a:hover {
+		border-color: var(--text-tertiary);
+		color: var(--text-primary);
+		background: var(--bg-tertiary);
+		z-index: 2;
 	}
 
 	.docs-groups {
@@ -252,10 +315,9 @@
 	}
 
 	.notes {
-		margin-top: 10px;
-		padding: 8px;
-		border: 1px solid var(--border-color);
-		background: var(--bg-primary);
+		margin-top: 12px;
+		padding-top: 10px;
+		border-top: 1px solid var(--border-color);
 	}
 
 	h5 {
@@ -263,16 +325,27 @@
 		font-size: 11px;
 		text-transform: uppercase;
 		color: var(--text-tertiary);
+		letter-spacing: 0.05em;
 	}
 
 	.notes ul {
 		margin: 0;
-		padding-left: 16px;
+		padding: 0;
+		list-style: none;
 	}
 
 	.notes li {
 		font-size: 11px;
 		color: var(--text-secondary);
-		margin: 2px 0;
+		margin: 4px 0;
+		position: relative;
+		padding-left: 12px;
+	}
+
+	.notes li::before {
+		content: '•';
+		position: absolute;
+		left: 0;
+		color: var(--text-tertiary);
 	}
 </style>
